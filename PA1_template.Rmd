@@ -1,25 +1,131 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
+title: "Course Project - Activity Monitor"
 output: 
   html_document:
     keep_md: true
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-## Loading and preprocessing the data
+##Loading and preprocessing the data
+We unzip and load the raw data first
+```{r load}
+unzip("activity.zip")
+raw_data <- read.csv("activity.csv", header=T)
+```
+
+we look at the raw data
+```{r look1}
+summary(raw_data)
+str(raw_data)
+```
+
+we create a copy of the raw data and convert the data variable into a data type 
+```{r cc}
+data <- raw_data
+data$date <- as.Date(raw_data$date, format="%Y-%m-%d")
+```
+
+we look at the data again
+```{r look2}
+summary(data)
+str(data)
+```
+
+##What is mean total number of steps taken per day?
+total number of steps taken per day
+```{r spd}
+steps_per_day <- aggregate(steps~date, data, sum)
+```
+
+mean and median
+```{r mam}
+mean_steps_per_day <- mean(steps_per_day$steps)
+median_steps_per_day <- median(steps_per_day$steps)
+```
+
+plot histogram and add mean and median as vertical lines
+```{r plot1}
+hist(steps_per_day$steps, main="Histogramm of steps per day", xlab="steps per day")
+abline(v=mean(steps_per_day$steps), col="royalblue", lwd=2,lty=4)
+abline(v=median(steps_per_day$steps), col="red", lwd=2, lty=2)
+legend(x = "topright", c("Mean", "Median"),
+ col = c("royalblue", "red"),
+ lwd = c(2, 2),
+ lty= c(4,2))
+```
+
+##What is the average daily activity pattern?
+```{r plot2}
+avg_steps_per_interval <- aggregate(steps~interval,data, mean)
+plot(avg_steps_per_interval$interval, avg_steps_per_interval$steps, type="l", xlab="Interval", main="Average Steps per Interval", ylab="Steps")
+maxx <- avg_steps_per_interval[which.max(avg_steps_per_interval$steps),1]
+axis(1, at=maxx)
+abline(v=maxx, col="red", lwd=2)
+legend(x = "topright", c("Max"),
+ col = c("red"),
+ lwd = c(2))
+```
 
 
+##Imputing missing values
+number of rows with missing data
+```{r i1}
+sum(is.na(data))
+```
 
-## What is mean total number of steps taken per day?
+looking at missing values
+```{r lamv}
+xg <- split(data$steps, data$date)
+daysna <- sapply(xg, function(x) mean(is.na(x)))
+sum(daysna)
+length(xg)
+```
 
+There are 8 out of 53 days without any recorded steps in the intervals, this means all the intervals are empty. We will impute the missing intervals the mean for the specific interval.
+```{r impd}
+imputted_data <- data
+sum(is.na(imputted_data$steps))
+naindex <- which(is.na(data$steps))
+#imputted_data$steps[naindex] <- steps_per_interval$steps[steps_per_interval$interval == imputted_data$interval[naindex]]
 
+for(i in naindex) 
+{
+  imputted_data$steps[i] <- avg_steps_per_interval$steps[avg_steps_per_interval$interval == imputted_data$interval[i]]
+  
+}
 
-## What is the average daily activity pattern?
+sum(is.na(imputted_data$steps))
+```
+We will now look at the histogramm of the imputed data
 
+```{r plot3}
+steps_per_day_imp <- aggregate(steps~date, imputted_data, sum)
+hist(steps_per_day_imp$steps, main="Histogramm of steps per day (imputed data)", xlab="steps per day")
+abline(v=mean(steps_per_day_imp$steps), col="royalblue", lwd=2,lty=4)
+abline(v=median(steps_per_day_imp$steps), col="red", lwd=2, lty=2)
+legend(x = "topright", c("Mean", "Median"),
+ col = c("royalblue", "red"),
+ lwd = c(2, 2),
+ lty= c(4,2))
+```
+As one can see above the median and mean values of the total steps per day do not changed when missing intervals are replaced with the mean of the interval. The histogram has changed on the middle bar which has increased and now contains the imputed values.
 
+#Are there differences in activity patterns between weekdays and weekends?
+```{r fac}
+library(ggplot2)
+imputted_data$fw <- as.factor(weekdays(imputted_data$date))
+levels(imputted_data$fw)
+levels(imputted_data$fw) <- c("Weekday","Weekday","Weekend","Weekend","Weekday","Weekday","Weekday")
+levels(imputted_data$fw)
+```
 
-## Imputing missing values
+```{r plot5}
+steps_per_interval_fw <- aggregate(steps~interval+fw, imputted_data, mean)
+g <- ggplot(steps_per_interval_fw,aes(interval, steps))
+g+geom_line(col="blue")+
+facet_wrap(~fw) + labs(x="Interval") + labs(y="Steps") + labs(title="Average Steps per Interval")
+```
 
-
-
-## Are there differences in activity patterns between weekdays and weekends?
